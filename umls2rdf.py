@@ -43,7 +43,6 @@ HAS_TUI = "umls:tui"
 
 # http://www.nlm.nih.gov/research/umls/sourcereleasedocs/current/SNOMEDCT/relationships.html
 
-
 class IDXS(object):
 
     class MRCONSO(object):
