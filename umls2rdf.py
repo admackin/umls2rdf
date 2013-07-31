@@ -20,17 +20,20 @@ except:
     sys.stdout.write("Copy and modify conf_sample.py into conf.py\n")
     raise
 
+UMLS_BASE_URL = "http://bioportal.bioontology.org/ontologies/umls/"
+
 PREFIXES = """
 @prefix skos: <http://www.w3.org/2004/02/skos/core#> .
 @prefix owl:  <http://www.w3.org/2002/07/owl#> .
 @prefix rdfs:  <http://www.w3.org/2000/01/rdf-schema#> .
 @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
-@prefix umls: <http://bioportal.bioontology.org/ontologies/umls/> .
+@prefix umls: <%(umls)s> .
+@prefix umlssty: <%(umls)ssty/> .
 
-"""
+""" % {'umls': UMLS_BASE_URL}
 
 ONTOLOGY_HEADER = Template("""
-<$uri>
+:
     a owl:Ontology ;
     rdfs:comment "$comment" ;
     rdfs:label "$label" ;
@@ -39,7 +42,7 @@ ONTOLOGY_HEADER = Template("""
 
 """)
 
-STY_URL = "http://bioportal.bioontology.org/ontologies/umls/sty/"
+STY_URL = "umlssty:"
 HAS_STY = "umls:hasSTY"
 HAS_AUI = "umls:aui"
 HAS_CUI = "umls:cui"
@@ -83,7 +86,7 @@ MRSTY_CUI = 0
 MRSTY_TUI = 1
 
 def get_umls_url(code):
-    return "http://purl.bioontology.org/ontology/%s/" % code
+    return "bioont:%s/" % code
 
 def flatten(matrix):
     return reduce(lambda x, y: x + y, matrix)
@@ -92,10 +95,10 @@ def escape(string):
     return string.replace("\\", "\\\\").replace('"', '\\"')
 
 def get_url_term(ns, code):
-    if ns[-1] == '/':
-        ret = ns + urllib.quote(code)
+    if ns[-1] in ('/', ':'):
+        ret = "<%s%s>" % (ns, urllib.quote(code))
     else:
-        ret = "%s/%s"%(ns, urllib.quote(code))
+        ret = "<%s/%s>"% (ns, urllib.quote(code))
     return ret.replace("%20", "+") 
 
 def get_rel_fragment(rel):
@@ -129,7 +132,7 @@ def generate_semantic_types(con, url, fileout):
 
     for stt in mrsty.scan():
         hierarchy[stt[1]].append(stt[0])
-        sty_term = """<%s> a owl:Class ;
+        sty_term = """%s a owl:Class ;
 \tskos:notation "%s"^^xsd:string ;
 \tskos:prefLabel "%s"@en .
 """%(url+stt[0], stt[0], stt[2])
@@ -138,7 +141,7 @@ def generate_semantic_types(con, url, fileout):
     
     for node in all_nodes:
         parent = ".".join(node[1].split(".")[0:-1])
-        rdfs_subclasses = ["<%s> rdfs:subClassOf <%s> ." % 
+        rdfs_subclasses = ["<%s> rdfs:subClassOf %s ." % 
             (url+node[0], url+x) for x in hierarchy[parent]]
         for sc in rdfs_subclasses:
             ont.append(sc)
@@ -276,7 +279,7 @@ class UmlsClass(object):
         url_term = self.getURLTerm(term_code)
         prefLabel = self.getPrefLabel()
         altLabels = self.getAltLabels(prefLabel)
-        rdf_term = """<%s> a owl:Class ;
+        rdf_term = """%s a owl:Class ;
 \tskos:prefLabel \"\"\"%s\"\"\"@en ;
 \tskos:notation \"\"\"%s\"\"\"^^xsd:string ;
 """ % (url_term, escape(prefLabel), escape(term_code))
@@ -302,11 +305,11 @@ class UmlsClass(object):
                 continue
             if rel[MRREL_REL] == 'CHD' and hierarchy:
                 o = self.getURLTerm(target_code)
-                rdf_term += "\trdfs:subClassOf <%s> ;\n" % (o, )
+                rdf_term += "\trdfs:subClassOf %s ;\n" % (o, )
             else:
                 p = self.getURLTerm(get_rel_fragment(rel))
                 o = self.getURLTerm(target_code)
-                rdf_term += "\t<%s> <%s> ;\n" % (p, o)
+                rdf_term += "\t%s %s ;\n" % (p, o)
 
         for att in self.atts:
             atn = att[MRSAT_ATN]
@@ -318,7 +321,7 @@ class UmlsClass(object):
                 #  LOG.debug("att: %s\n" % str(att))
                 #  sys.stderr.flush()
                 continue
-            rdf_term += "\t<%s> \"\"\"%s\"\"\"^^xsd:string ;\n" % (self.getURLTerm(atn), escape(atv))
+            rdf_term += "\t%s \"\"\"%s\"\"\"^^xsd:string ;\n" % (self.getURLTerm(atn), escape(atv))
 
         #auis = set([x[MRCONSO_AUI] for x in self.atoms])
         cuis = set([x[MRCONSO_CUI] for x in self.atoms])
@@ -332,7 +335,7 @@ class UmlsClass(object):
         for t in set(types):
             rdf_term += """\t%s \"\"\"%s\"\"\"^^xsd:string ;\n""" % (HAS_TUI, t)
         for t in set(types):
-            rdf_term += """\t%s <%s> ;\n""" % (HAS_STY, STY_URL+t)
+            rdf_term += """\t%s %s ;\n""" % (HAS_STY, STY_URL+t)
 
         return rdf_term + " .\n\n"
 
@@ -494,7 +497,7 @@ class UmlsOntology(object):
             defs = [self.defs[x] for x in self.defs_by_aui[_id] for _id in ids]
             atts = [self.atts[x] for x in self.atts_by_code[code]]
 
-            yield UmlsClass(self.ns, atoms=code_atoms, rels=rels_to_class,
+            yield UmlsClass(':', atoms=code_atoms, rels=rels_to_class,
                 defs=defs, atts=atts, rank=self.rank, rank_by_tty=self.rank_by_tty,
                 sty=self.sty, sty_by_cui=self.sty_by_cui,
                 load_on_cuis=self.load_on_cuis, is_root=is_root)
@@ -504,6 +507,7 @@ class UmlsOntology(object):
         fout = file(file_path, "w")
         #nterms = len(self.atoms_by_code)
         fout.write(PREFIXES)
+        fout.write("@prefix : <%s%s/> .\n" % (UMLS_BASE_URL, self.ont_code))
         comment = "RDF Version of the UMLS ontology %s; " +\
                   "converted with the UMLS2RDF tool " +\
                   "(https://github.com/ncbo/umls2rdf), "+\
@@ -512,7 +516,6 @@ class UmlsOntology(object):
            label=self.ont_code,
            comment=comment % self.ont_code,
            versioninfo=conf.UMLS_VERSION,
-           uri=self.ns
         )
         fout.write(ONTOLOGY_HEADER.substitute(header_values))
         for term in self.terms():
