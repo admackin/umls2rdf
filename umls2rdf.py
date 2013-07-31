@@ -171,7 +171,7 @@ def generate_semantic_types(data_root, url, fileout):
         fout.write("\n")
         fout.close()
 
-
+_CACHED_TABLES = {}
 
 class UmlsTable(object):
     def __init__(self, table_name, data_root, columns=None,
@@ -196,7 +196,7 @@ class UmlsTable(object):
                 yield [row[self._col_idx(cn)] for cn in self.columns]
             else:
                 yield row
-    
+
     def _get_rows(self):
         if self._cached_rows is not None:
             return self._cached_rows
@@ -211,6 +211,14 @@ class UmlsTable(object):
                         self._cached_rows.append(elems)
                     yield elems
 
+    @staticmethod
+    def get(cls, table_name, data_root, columns=None, cacheable_sabs=None):
+        if cacheable_sabs is None:
+            return UmlsTable(table_name, data_root, columns)
+        key = (table_name, data_root, columns, cacheable_sabs)
+        if key not in _CACHED_TABLES:
+            _CACHED_TABLES[key] = UmlsTable(table_name, data_root, columns, cacheable_sabs)
+        return _CACHED_TABLES[key]
 
 
 class UmlsClass(object):
@@ -400,7 +408,7 @@ class UmlsOntology(object):
         self.all_ont_codes = all_ont_codes
 
     def load_tables(self):
-        mrconso = UmlsTable("MRCONSO", self.data_root, 
+        mrconso = UmlsTable.get("MRCONSO", self.data_root, 
                 cacheable_sabs=self.all_ont_codes)
         mrconso_filt = {'SAB': self.ont_code, 'LAT': 'ENG'} 
         relev_cuis = set()
@@ -421,7 +429,7 @@ class UmlsOntology(object):
         LOG.debug("length cui_roots: %d" % len(self.cui_roots))
 
 
-        mrrel = UmlsTable("MRREL", self.data_root
+        mrrel = UmlsTable.get("MRREL", self.data_root
                 cacheable_sabs=self.all_ont_codes)
         gen_filt = {'SAB': self.ont_code} 
         field = IDXS.MRREL.AUI2 if not self.load_on_cuis else IDXS.MRREL.CUI2
@@ -431,7 +439,7 @@ class UmlsOntology(object):
             self.rels.append(rel)
         LOG.debug("length rels: %d", len(self.rels))
 
-        mrdef = UmlsTable("MRDEF", self.data_root
+        mrdef = UmlsTable.get("MRDEF", self.data_root
                 cacheable_sabs=self.all_ont_codes)
         field = IDXS.MRDEF.AUI if not self.load_on_cuis else IDXS.MRDEF.CUI
         for defi in mrdef.scan(filt=gen_filt):
@@ -441,7 +449,7 @@ class UmlsOntology(object):
         LOG.debug("length defs: %d", len(self.defs))
 
         if self.store_atts:
-            mrsat = UmlsTable("MRSAT", self.data_root
+            mrsat = UmlsTable.get("MRSAT", self.data_root
                     cacheable_sabs=self.all_ont_codes)
             field = IDXS.MRSAT.CODE if not self.load_on_cuis else IDXS.MRSAT.CUI
             for att in mrsat.scan(filt=gen_filt):
@@ -452,7 +460,7 @@ class UmlsOntology(object):
                 self.atts.append(att)
             LOG.debug("length atts: %d", len(self.atts))
 
-        mrrank = UmlsTable("MRRANK", self.data_root
+        mrrank = UmlsTable.get("MRRANK", self.data_root
                 cacheable_sabs=self.all_ont_codes)
         for rank in mrrank.scan(filt=gen_filt):
             index = len(self.rank)
@@ -564,6 +572,9 @@ def main():
     parser.add_option('-n', '--no-atts', dest="store_atts",
             default=True, action="store_false",
             help="Don't create triples for attributes (ie ignore MRSAT)")
+    parser.add_option('--no-cache', dest="cache", action="store_false",
+            default=True, help="Don't cache when creating multiple ontologies"
+            " (saves memory but slows down, especially on smaller ontologies)")
     (options, args) = parser.parse_args()
     try:
         try:
@@ -582,6 +593,10 @@ def main():
 
     output_file = os.path.join(output_dir, "umls_semantictypes.ttl")
     generate_semantic_types(data_root, STY_URL, output_file)
+    if options.cache and len(options.sources) > 1:
+        all_ont_codes = frozenset(options.sources)
+    else:
+        all_ont_codes = None
     for umls_code in options.sources:
         file_out = "%s.ttl" % umls_code
         output_file = path.join(output_dir, file_out)
@@ -592,7 +607,7 @@ def main():
                 load_on_cuis=options.load_on_cuis,
                 umls_version=options.umls_version,
                 store_atts=options.store_atts,
-                all_ont_codes=options.sources)
+                all_ont_codes=all_ont_codes)
         ont.load_tables()
         ont.write_into(output_file, hierarchy=(ont.ont_code != "MSH"))
         LOG.info("done!")
