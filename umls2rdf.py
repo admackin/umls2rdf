@@ -391,14 +391,14 @@ class UmlsOntology(object):
                 self.atoms_by_aui[atom[IDXS.MRCONSO.AUI]].append(index)
             self.atoms.append(atom)
             relev_cuis.add(atom[IDXS.MRCONSO.CUI])
-        LOG.debug("length atoms: %d\n", len(self.atoms))
-        LOG.debug("length atoms_by_aui: %d\n", len(self.atoms_by_aui))
-        LOG.debug("atom example: %s\n\n", str(self.atoms[0]))
+        LOG.debug("length atoms: %d", len(self.atoms))
+        LOG.debug("length atoms_by_aui: %d", len(self.atoms_by_aui))
+        LOG.debug("atom example: %s", str(self.atoms[0]))
         #
         mrconso_filt = {'SAB': 'SRC', 'CODE': 'V-%s' % self.ont_code} 
         for atom in mrconso.scan(filt=mrconso_filt):
             self.cui_roots.add(atom[IDXS.MRCONSO.CUI])
-        LOG.debug("length cui_roots: %d\n\n" % len(self.cui_roots))
+        LOG.debug("length cui_roots: %d" % len(self.cui_roots))
 
         #
         mrrel = UmlsTable("MRREL", self.data_root)
@@ -408,7 +408,7 @@ class UmlsOntology(object):
             index = len(self.rels)
             self.rels_by_aui_src[rel[field]].append(index)
             self.rels.append(rel)
-        LOG.debug("length rels: %d\n\n", len(self.rels))
+        LOG.debug("length rels: %d", len(self.rels))
         #
         mrdef = UmlsTable("MRDEF", self.data_root)
         mrdef_filt = {'SAB': self.ont_code} 
@@ -417,7 +417,7 @@ class UmlsOntology(object):
             index = len(self.defs)
             self.defs_by_aui[defi[field]].append(index)
             self.defs.append(defi)
-        LOG.debug("length defs: %d\n\n", len(self.defs))
+        LOG.debug("length defs: %d", len(self.defs))
         #
         if self.store_atts:
             mrsat = UmlsTable("MRSAT", self.data_root)
@@ -429,7 +429,7 @@ class UmlsOntology(object):
                     continue
                 self.atts_by_code[att[field]].append(index)
                 self.atts.append(att)
-            LOG.debug("length atts: %d\n\n", len(self.atts))
+            LOG.debug("length atts: %d", len(self.atts))
         #
         mrrank = UmlsTable("MRRANK", self.data_root)
         mrrank_filt = {'SAB': self.ont_code}
@@ -437,7 +437,7 @@ class UmlsOntology(object):
             index = len(self.rank)
             self.rank_by_tty[rank[IDXS.MRRANK.TTY]].append(index)
             self.rank.append(rank)
-        LOG.debug("length rank: %d\n\n", len(self.rank))
+        LOG.debug("length rank: %d", len(self.rank))
         #
         mrsty = UmlsTable("MRSTY", self.data_root)
         for sty in mrsty.scan(filt=None):
@@ -447,10 +447,10 @@ class UmlsOntology(object):
             index = len(self.sty)
             self.sty_by_cui[cui].append(index)
             self.sty.append(sty)
-        LOG.debug("length sty: %d\n\n", len(self.sty))
+        LOG.debug("length sty: %d", len(self.sty))
         # Track the loaded status
         self.loaded = True
-        LOG.info("%s tables loaded ...\n", self.ont_code)
+        LOG.info("%s tables loaded ...", self.ont_code)
 
     def terms(self):
         if not self.loaded:
@@ -505,7 +505,7 @@ class UmlsOntology(object):
                 load_on_cuis=self.load_on_cuis, is_root=is_root)
 
     def write_into(self, file_path, hierarchy=True):
-        LOG.info("%s writing terms ... %s\n" % (self.ont_code, file_path))
+        LOG.info("%s writing terms ... %s" % (self.ont_code, file_path))
         with open(file_path, "w") as fout:
             #nterms = len(self.atoms_by_code)
             fout.write(PREFIXES)
@@ -564,7 +564,7 @@ def main():
     for umls_code in options.sources:
         file_out = "%s.ttl" % umls_code
         output_file = path.join(output_dir, file_out)
-        LOG.info("Generating %s (with load_on_cuis=%r)\n", umls_code, 
+        LOG.info("Generating %s (with load_on_cuis=%r)", umls_code, 
             options.load_on_cuis)
         ns = get_umls_url(umls_code)
         ont = UmlsOntology(umls_code, ns, data_root, 
@@ -573,8 +573,8 @@ def main():
                 store_atts=options.store_atts)
         ont.load_tables()
         ont.write_into(output_file, hierarchy=(ont.ont_code != "MSH"))
-        LOG.info("done!\n\n")
-    LOG.info("generated MRDOC at global/UMLS level\n")
+        LOG.info("done!")
+    LOG.info("generated MRDOC at global/UMLS level")
 
 
 if __name__ == "__main__":
