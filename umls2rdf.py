@@ -56,6 +56,8 @@ class IDXS(object):
         TTY = 12
         TS = 2
         CUI = 0
+        LAT = 1
+        SAB = 11
 
     class MRREL(object):
         AUI1 = 1
@@ -64,17 +66,20 @@ class IDXS(object):
         CUI2 = 4
         REL = 3
         RELA = 7
+        SAB = 10
 
     class MRDEF(object):
         AUI = 1
         DEF = 5
         CUI = 0
+        SAB = 4
 
     class MRSAT(object):
         CUI = 0
         CODE = 5
         ATV = 10
         ATN = 8
+        SAB = 9
 
     class MRDOC(object):
         VALUE = 1
@@ -84,10 +89,13 @@ class IDXS(object):
     class MRRANK(object):
         TTY = 2
         RANK = 0
+        SAB = 1
 
     class MRSTY(object):
         CUI = 0
         TUI = 1
+        STN = 2
+        STY = 3
 
 
 def get_umls_url(code):
@@ -158,10 +166,11 @@ def generate_semantic_types(data_root, url, fileout):
 
 
 class UmlsTable(object):
-    def __init__(self, data_root, table_name, columns=None):
+    def __init__(self, table_name, data_root, columns=None):
         self.table_name = table_name
         self.data_root = data_root
         self._indexes = getattr(IDXS, table_name)
+        self.columns = columns
 
     def _col_idx(self, colname):
         return getattr(self._indexes, colname)
@@ -265,7 +274,7 @@ class UmlsClass(object):
 """ % (url_term, escape(prefLabel), escape(term_code))
         if len(altLabels) > 0:
             rdf_term += """\tskos:altLabel %s ;
-""" % (" , ".join(map(lambda x: '\"\"\"%s\"\"\"@en' % escape(x),set(altLabels))))
+""" % (" , ".join('\"\"\"%s\"\"\"@en' % escape(al) for al in altLabels))
         if self.is_root: 
             rdf_term += '\tumls:isRoot "true"^^xsd:boolean ;\n'
             # TODO: Discuss adding this subclass relation.
@@ -273,7 +282,7 @@ class UmlsClass(object):
 
         if len(self.defs) > 0:
             rdf_term += """\tskos:definition %s ;
-""" % (" , ".join(map(lambda x: '\"\"\"%s\"\"\"@en' % escape(x[IDXS.MRDEF.DEF]), set(self.defs))))
+""" % (" , ".join('\"\"\"%s\"\"\"@en' % escape(d[IDXS.MRDEF.DEF]) for d in self.defs))
 
         for rel in self.rels:
             source_code = get_rel_code_source(rel, self.load_on_cuis)
@@ -365,11 +374,11 @@ class UmlsOntology(object):
         self.cui_roots = set()
         self.umls_version = umls_version
 
-    def load_tables(self, limit=None):
+    def load_tables(self):
         mrconso = UmlsTable("MRCONSO", self.data_root)
-        mrconso_filt = {'SAB': self.ont_code, 'lat': 'ENG'} 
+        mrconso_filt = {'SAB': self.ont_code, 'LAT': 'ENG'} 
         relev_cuis = set()
-        for atom in mrconso.scan(filt=mrconso_filt, limit=limit):
+        for atom in mrconso.scan(filt=mrconso_filt):
             index = len(self.atoms)
             self.atoms_by_code[get_code(atom, self.load_on_cuis)].append(index)
             if not self.load_on_cuis:
@@ -381,7 +390,7 @@ class UmlsOntology(object):
         LOG.debug("atom example: %s\n\n", str(self.atoms[0]))
         #
         mrconso_filt = {'SAB': 'SRC', 'CODE': 'V-%s' % self.ont_code} 
-        for atom in mrconso.scan(filt=mrconso_filt, limit=limit):
+        for atom in mrconso.scan(filt=mrconso_filt):
             self.cui_roots.add(atom[IDXS.MRCONSO.CUI])
         LOG.debug("length cui_roots: %d\n\n" % len(self.cui_roots))
 
@@ -389,7 +398,7 @@ class UmlsOntology(object):
         mrrel = UmlsTable("MRREL", self.data_root)
         mrrel_filt = {'SAB': self.ont_code} 
         field = IDXS.MRREL.AUI2 if not self.load_on_cuis else IDXS.MRREL.CUI2
-        for rel in mrrel.scan(filt=mrrel_filt, limit=limit):
+        for rel in mrrel.scan(filt=mrrel_filt):
             index = len(self.rels)
             self.rels_by_aui_src[rel[field]].append(index)
             self.rels.append(rel)
@@ -490,61 +499,67 @@ class UmlsOntology(object):
 
     def write_into(self, file_path, hierarchy=True):
         LOG.info("%s writing terms ... %s\n" % (self.ont_code, file_path))
-        fout = file(file_path, "w")
-        #nterms = len(self.atoms_by_code)
-        fout.write(PREFIXES)
-        fout.write("@prefix : <%s%s/> .\n" % (UMLS_BASE_URL, self.ont_code))
-        comment = "RDF Version of the UMLS ontology %s; " +\
-                  "converted with the UMLS2RDF tool " +\
-                  "(https://github.com/ncbo/umls2rdf), "+\
-                  "developed by the NCBO project."
-        header_values = dict(
-           label=self.ont_code,
-           comment=comment % self.ont_code,
-           versioninfo=self.umls_version,
-        )
-        fout.write(ONTOLOGY_HEADER.substitute(header_values))
-        for term in self.terms():
-            fout.write(term.toRDF())
-        fout.close()
+        with open(file_path, "w") as fout:
+            #nterms = len(self.atoms_by_code)
+            fout.write(PREFIXES)
+            fout.write("@prefix : <%s%s/> .\n" % (UMLS_BASE_URL, self.ont_code))
+            comment = "RDF Version of the UMLS ontology %s; " +\
+                      "converted with the UMLS2RDF tool " +\
+                      "(https://github.com/ncbo/umls2rdf), "+\
+                      "developed by the NCBO project."
+            header_values = dict(
+               label=self.ont_code,
+               comment=comment % self.ont_code,
+               versioninfo=self.umls_version,
+               uri=self.ns
+            )
+            fout.write(ONTOLOGY_HEADER.substitute(header_values))
+            for term in self.terms():
+                fout.write(term.toRDF())
 
+class UsageError(Exception):
+    pass
 
 def main():
-    parser = optparse.OptionParser()
-    parser.add_option("-f", "--file", dest="filename",
-                  help="write report to FILE", metavar="FILE")
+    usage = "Usage: %prog [options] MEDLINE_RRF_DATA_DIR OUTPUT_DIR"
+    parser = optparse.OptionParser(usage=usage)
+    parser.add_option("-u", "--umls-version", dest="umls_version",
+                  help="UMLS version to tag TTL files with", default="2012AB")
     (options, args) = parser.parse_args()
     try:
         data_root = args[0]
         output_dir = args[1]
     except IndexError:
-        sys.stderr.write("Usage: %s MEDLINE_RRF_DATA_DIR OUTPUT_DIR")
-        exit()
+        parser.print_help()
+        raise UsageError()
+    if not path.isdir(output_dir) or not os.access(output_dir, os.W_OK):
+        raise UsageError("Path %s does not exist or is not writable" % output_dir)
 
     umls_conf = None
     with open("umls.conf", "r") as fconf:
         umls_conf = [line.split(",") \
-                        for line in fconf.read().splitlines() \
-                            if len(line) > 0]
+            for line in fconf.read().splitlines() \
+            if len(line) > 0 and not line.startswith('#')]
         fconf.close()
+    for uc in umls_conf:
+        if len(uc) != 4:
+            raise UsageError("Malformed configuration line: %r" % uc)
 
+    output_file = os.path.join(output_dir, "umls_semantictypes.ttl")
+    generate_semantic_types(data_root, STY_URL, output_file)
     for (umls_code, vrt_id, file_out, load_on_field) in umls_conf:
         alt_uri_code = None
         if ";" in umls_code:
             umls_code, alt_uri_code = umls_code.split(";")
-        if umls_code.startswith("#"):
-            continue
         load_on_cuis = load_on_field == "load_on_cuis"
         output_file = path.join(output_dir, file_out)
         LOG.info("Generating %s (virtual_id: %s, using '%s')\n", umls_code, vrt_id, load_on_field)
         ns = get_umls_url(umls_code if not alt_uri_code else alt_uri_code)
-        ont = UmlsOntology(umls_code, ns, data_root, load_on_cuis=load_on_cuis)
+        ont = UmlsOntology(umls_code, ns, data_root, load_on_cuis=load_on_cuis,
+                umls_version=options.umls_version)
         ont.load_tables()
         ont.write_into(output_file, hierarchy=(ont.ont_code != "MSH"))
         LOG.info("done!\n\n")
-   
-    output_file = os.path.join(output_dir, "umls_semantictypes.ttl")
-    generate_semantic_types(data_root, STY_URL, output_file)
     LOG.info("generated MRDOC at global/UMLS level\n")
 
 
