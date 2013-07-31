@@ -8,6 +8,9 @@ import urllib
 from string import Template
 import collections
 import optparse
+from codecs import open
+
+ENC = 'utf-8'
 
 logging.basicConfig()
 LOG = logging.getLogger(name='umls2rdf')
@@ -163,7 +166,7 @@ def generate_semantic_types(data_root, url, fileout):
         for sc in rdfs_subclasses:
             ont.append(sc)
     data_ont_ttl = "\n".join(ont)
-    with open(fileout, "w") as fout:
+    with open(fileout, "w", encoding=ENC) as fout:
         fout.write(data_ont_ttl)
         fout.write("\n")
         fout.close()
@@ -182,7 +185,7 @@ class UmlsTable(object):
 
     def scan(self, filt=None):
         rrf_path = path.join(self.data_root, "%s.RRF" % self.table_name)
-        with open(rrf_path) as f:
+        with open(rrf_path, encoding=ENC) as f:
             for line in f:
                 elems = line.rstrip('\n').split('|')
                 if filt and any(elems[self._col_idx(col)] != tgt
