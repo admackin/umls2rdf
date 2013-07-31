@@ -13,6 +13,12 @@ logging.basicConfig()
 LOG = logging.getLogger(name='umls2rdf')
 LOG.setLevel(logging.DEBUG)
 
+KNOWN_ONT_CODES = set(['AIR', 'CST', 'CSP', 'HCPCS', 'ICD10PCS', 
+        'ICD10CM', 'ICPC2P', 'ICD9CM', 'LNC', 'MDR', 'MDDB', 'MSH',
+        'MEDLINEPLUS', 'MTHCH', 'NDDF', 'NDFRT', 'OMIM', 'PDQ', 
+        'RCD', 'RXNORM', 'SNOMEDCT', 'VANDF', 'WHO', 'HL7', 
+        'ICD10', 'CPT', 'ICPC']) 
+
 UMLS_BASE_URL = "http://bioportal.bioontology.org/ontologies/umls/"
 
 PREFIXES = """
@@ -523,38 +529,43 @@ def main():
     usage = "Usage: %prog [options] MEDLINE_RRF_DATA_DIR OUTPUT_DIR"
     parser = optparse.OptionParser(usage=usage)
     parser.add_option("-u", "--umls-version", dest="umls_version",
-                  help="UMLS version to tag TTL files with", default="2012AB")
+            help="UMLS version to tag TTL files with", default="2012AB")
+    parser.add_option("-s", "--source", dest="sources", action="append",
+            help="Create TTL files for this source ontology. Can be "
+            " specified multiple times; must be one of %s)" 
+            % ', '.join(KNOWN_ONT_CODES))
+    parser.add_option("--load-on-cuis", dest="load_on_cuis",
+            default=False, action="store_true", 
+            help="Load on CUIs (concept IDs) rather than "
+            "AUIs (atom IDs) -- recommended for HL7 ")
     (options, args) = parser.parse_args()
     try:
-        data_root = args[0]
-        output_dir = args[1]
-    except IndexError:
+        try:
+            data_root = args[0]
+            output_dir = args[1]
+        except IndexError:
+            raise UsageError()
+        if not path.isdir(output_dir) or not os.access(output_dir, os.W_OK):
+            raise UsageError("Path %s does not exist or is not writable" % output_dir)
+        for ps in options.sources:
+            if ps not in KNOWN_ONT_CODES:
+                raise UsageError("Unknown ontology %s" % ps)
+    except UsageError:
         parser.print_help()
-        raise UsageError()
-    if not path.isdir(output_dir) or not os.access(output_dir, os.W_OK):
-        raise UsageError("Path %s does not exist or is not writable" % output_dir)
-
-    umls_conf = None
-    with open("umls.conf", "r") as fconf:
-        umls_conf = [line.split(",") \
-            for line in fconf.read().splitlines() \
-            if len(line) > 0 and not line.startswith('#')]
-        fconf.close()
-    for uc in umls_conf:
-        if len(uc) != 4:
-            raise UsageError("Malformed configuration line: %r" % uc)
+        raise
 
     output_file = os.path.join(output_dir, "umls_semantictypes.ttl")
     generate_semantic_types(data_root, STY_URL, output_file)
-    for (umls_code, vrt_id, file_out, load_on_field) in umls_conf:
+    for umls_code in options.sources:
         alt_uri_code = None
         if ";" in umls_code:
             umls_code, alt_uri_code = umls_code.split(";")
-        load_on_cuis = load_on_field == "load_on_cuis"
         output_file = path.join(output_dir, file_out)
-        LOG.info("Generating %s (virtual_id: %s, using '%s')\n", umls_code, vrt_id, load_on_field)
+        LOG.info("Generating %s (with load_on_cuis=%r)\n", umls_code, 
+            options.load_on_cuis)
         ns = get_umls_url(umls_code if not alt_uri_code else alt_uri_code)
-        ont = UmlsOntology(umls_code, ns, data_root, load_on_cuis=load_on_cuis,
+        ont = UmlsOntology(umls_code, ns, data_root, 
+                load_on_cuis=options.load_on_cuis,
                 umls_version=options.umls_version)
         ont.load_tables()
         ont.write_into(output_file, hierarchy=(ont.ont_code != "MSH"))
