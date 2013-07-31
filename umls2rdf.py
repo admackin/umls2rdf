@@ -184,7 +184,7 @@ class UmlsTable(object):
         rrf_path = path.join(self.data_root, "%s.RRF" % self.table_name)
         with open(rrf_path) as f:
             for line in f:
-                elems = line.split('|')
+                elems = line.rstrip('\n').split('|')
                 if filt and any(elems[self._col_idx(col)] != tgt
                         for col, tgt in filt.iteritems()):
                     continue
