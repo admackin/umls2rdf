@@ -397,51 +397,48 @@ class UmlsOntology(object):
         LOG.debug("length atoms: %d", len(self.atoms))
         LOG.debug("length atoms_by_aui: %d", len(self.atoms_by_aui))
         LOG.debug("atom example: %s", str(self.atoms[0]))
-        #
+
         mrconso_filt = {'SAB': 'SRC', 'CODE': 'V-%s' % self.ont_code} 
         for atom in mrconso.scan(filt=mrconso_filt):
             self.cui_roots.add(atom[IDXS.MRCONSO.CUI])
         LOG.debug("length cui_roots: %d" % len(self.cui_roots))
 
-        #
+
         mrrel = UmlsTable("MRREL", self.data_root)
-        mrrel_filt = {'SAB': self.ont_code} 
+        gen_filt = {'SAB': self.ont_code} 
         field = IDXS.MRREL.AUI2 if not self.load_on_cuis else IDXS.MRREL.CUI2
-        for rel in mrrel.scan(filt=mrrel_filt):
+        for rel in mrrel.scan(filt=gen_filt):
             index = len(self.rels)
             self.rels_by_aui_src[rel[field]].append(index)
             self.rels.append(rel)
         LOG.debug("length rels: %d", len(self.rels))
-        #
+
         mrdef = UmlsTable("MRDEF", self.data_root)
-        mrdef_filt = {'SAB': self.ont_code} 
         field = IDXS.MRDEF.AUI if not self.load_on_cuis else IDXS.MRDEF.CUI
-        for defi in mrdef.scan(filt=mrdef_filt):
+        for defi in mrdef.scan(filt=gen_filt):
             index = len(self.defs)
             self.defs_by_aui[defi[field]].append(index)
             self.defs.append(defi)
         LOG.debug("length defs: %d", len(self.defs))
-        #
+
         if self.store_atts:
             mrsat = UmlsTable("MRSAT", self.data_root)
-            mrsat_filt = {'SAB': self.ont_code} 
             field = IDXS.MRSAT.CODE if not self.load_on_cuis else IDXS.MRSAT.CUI
-            for att in mrsat.scan(filt=mrsat_filt):
+            for att in mrsat.scan(filt=gen_filt):
                 index = len(self.atts)
                 if not att[field]:
                     continue
                 self.atts_by_code[att[field]].append(index)
                 self.atts.append(att)
             LOG.debug("length atts: %d", len(self.atts))
-        #
+
         mrrank = UmlsTable("MRRANK", self.data_root)
-        mrrank_filt = {'SAB': self.ont_code}
-        for rank in mrrank.scan(filt=mrrank_filt):
+        for rank in mrrank.scan(filt=gen_filt):
             index = len(self.rank)
             self.rank_by_tty[rank[IDXS.MRRANK.TTY]].append(index)
             self.rank.append(rank)
         LOG.debug("length rank: %d", len(self.rank))
-        #
+
         mrsty = UmlsTable("MRSTY", self.data_root)
         for sty in mrsty.scan(filt=None):
             cui = sty[IDXS.MRSTY.CUI]
