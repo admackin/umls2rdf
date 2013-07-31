@@ -558,13 +558,10 @@ def main():
     generate_semantic_types(data_root, STY_URL, output_file)
     for umls_code in options.sources:
         file_out = "%s.ttl" % umls_code
-        alt_uri_code = None
-        if ";" in umls_code:
-            umls_code, alt_uri_code = umls_code.split(";")
         output_file = path.join(output_dir, file_out)
         LOG.info("Generating %s (with load_on_cuis=%r)\n", umls_code, 
             options.load_on_cuis)
-        ns = get_umls_url(umls_code if not alt_uri_code else alt_uri_code)
+        ns = get_umls_url(umls_code)
         ont = UmlsOntology(umls_code, ns, data_root, 
                 load_on_cuis=options.load_on_cuis,
                 umls_version=options.umls_version)
