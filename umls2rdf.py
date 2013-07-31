@@ -557,6 +557,7 @@ def main():
     output_file = os.path.join(output_dir, "umls_semantictypes.ttl")
     generate_semantic_types(data_root, STY_URL, output_file)
     for umls_code in options.sources:
+        file_out = "%s.ttl" % umls_code
         alt_uri_code = None
         if ";" in umls_code:
             umls_code, alt_uri_code = umls_code.split(";")
