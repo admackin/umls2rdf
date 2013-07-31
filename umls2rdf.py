@@ -355,7 +355,7 @@ class UmlsAttribute(object):
 
 class UmlsOntology(object):
     def __init__(self, ont_code, ns, data_root, load_on_cuis=False,
-            umls_version="2012AB"):
+            umls_version="2012AB", store_atts=True):
         self.loaded = False
         self.ont_code = ont_code
         self.ns = ns
@@ -378,6 +378,7 @@ class UmlsOntology(object):
         self.sty_by_cui = collections.defaultdict(list)
         self.cui_roots = set()
         self.umls_version = umls_version
+        self.store_atts = store_atts
 
     def load_tables(self):
         mrconso = UmlsTable("MRCONSO", self.data_root)
@@ -418,16 +419,17 @@ class UmlsOntology(object):
             self.defs.append(defi)
         LOG.debug("length defs: %d\n\n", len(self.defs))
         #
-        mrsat = UmlsTable("MRSAT", self.data_root)
-        mrsat_filt = {'SAB': self.ont_code} 
-        field = IDXS.MRSAT.CODE if not self.load_on_cuis else IDXS.MRSAT.CUI
-        for att in mrsat.scan(filt=mrsat_filt):
-            index = len(self.atts)
-            if not att[field]:
-                continue
-            self.atts_by_code[att[field]].append(index)
-            self.atts.append(att)
-        LOG.debug("length atts: %d\n\n", len(self.atts))
+        if self.store_atts:
+            mrsat = UmlsTable("MRSAT", self.data_root)
+            mrsat_filt = {'SAB': self.ont_code} 
+            field = IDXS.MRSAT.CODE if not self.load_on_cuis else IDXS.MRSAT.CUI
+            for att in mrsat.scan(filt=mrsat_filt):
+                index = len(self.atts)
+                if not att[field]:
+                    continue
+                self.atts_by_code[att[field]].append(index)
+                self.atts.append(att)
+            LOG.debug("length atts: %d\n\n", len(self.atts))
         #
         mrrank = UmlsTable("MRRANK", self.data_root)
         mrrank_filt = {'SAB': self.ont_code}
@@ -538,6 +540,9 @@ def main():
             default=False, action="store_true", 
             help="Load on CUIs (concept IDs) rather than "
             "AUIs (atom IDs) -- recommended for HL7 ")
+    parser.add_option('-n', '--no-atts', dest="store_atts",
+            default=True, action="store_false",
+            help="Don't create triples for attributes (ie ignore MRSAT)")
     (options, args) = parser.parse_args()
     try:
         try:
@@ -564,7 +569,8 @@ def main():
         ns = get_umls_url(umls_code)
         ont = UmlsOntology(umls_code, ns, data_root, 
                 load_on_cuis=options.load_on_cuis,
-                umls_version=options.umls_version)
+                umls_version=options.umls_version,
+                store_atts=options.store_atts)
         ont.load_tables()
         ont.write_into(output_file, hierarchy=(ont.ont_code != "MSH"))
         LOG.info("done!\n\n")
