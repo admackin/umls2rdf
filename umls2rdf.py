@@ -10,6 +10,7 @@ import MySQLdb
 #import pdb
 #from itertools import groupby
 
+logging.basicConfig()
 LOG = logging.getLogger(name='umls2rdf')
 LOG.setLevel(logging.DEBUG)
 
@@ -526,7 +527,7 @@ if __name__ == "__main__":
     
     umls_conf = None
     with open("umls.conf", "r") as fconf:
-        umls_conf = [line.split(", ") \
+        umls_conf = [line.split(",") \
                         for line in fconf.read().splitlines() \
                             if len(line) > 0]
         fconf.close()
