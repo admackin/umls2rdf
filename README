@@ -1,13 +1,7 @@
-This project takes the MYSQL Unified Medical Language System (UMLS) database to convert the ontologies to RDF using OWL and SKOS as main schemas.
+This project takes the Unified Medical Language System (UMLS) database in plain text (RRF) format and converts the ontologies to RDF using OWL and SKOS as main schemas.
 
-To use it:
-    (a) Specify your database connection conf.py
-    (b) Specify the SAB ontologies to export in umls.conf.
+To use it, run ./umls2rdf.py -h to see a description of the command line options. 
 
-The configuration file umls.conf must contain one ontology per line. The lines are comma separated tuples where the elements are:
-    (0) SAB
-    (1) BioPortal Virtual ID. This is optional, any value works.
-    (2) Output file name.
-    (3) Conversion strategy. Accepted values (load_on_codes, load_on_cuis).
+By default, it caches all the lines read from the very large .RRF files which are relevant to any ontolgy in the export. If you are exporting multiple large ontologies at once, this could become very memory intensive. In any case, the caching is much more useful if you are reading multiple small ontologies. So a sensible strategy if you are memory-constrained is probably to export the small ontologies all at once, and the larger ontologies (MSH, SNOMEDCT) in a separate process each.
 
 umls2rdf.py has been designed to be an off-line run-once process, it is a memory intensive process and exports all the default ontologies in umls.conf in 3h 30min. The ontologies listed in umls.conf are the UMLS ontologies accessible at bioportal.bioontology.org.
