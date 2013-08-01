@@ -228,7 +228,7 @@ class UmlsClass(object):
             defs=None, atts=None, rank=None,
             rank_by_tty=None, sty=None,
             sty_by_cui=None, load_on_cuis=False,
-            is_root=None):
+            is_root=None, ont_link=True):
         self.ns = ns
         self.atoms = atoms
         self.rels = rels
@@ -240,6 +240,7 @@ class UmlsClass(object):
         self.sty_by_cui = sty_by_cui
         self.load_on_cuis = load_on_cuis
         self.is_root = is_root
+        self.ont_link = ont_link
 
     def code(self):
         codes = set([get_code(x, self.load_on_cuis) for x in self.atoms])
@@ -344,6 +345,8 @@ class UmlsClass(object):
                 #  sys.stderr.flush()
                 continue
             rdf_term += "\t%s \"\"\"%s\"\"\"^^xsd:string ;\n" % (self.getURLTerm(atn), escape(atv))
+        if self.ont_link:
+            rdf_term += "\trdfs:isDefinedBy <%s> ;\n" % (self.ns,)
 
         #auis = set([x[IDXS.MRCONSO.AUI] for x in self.atoms])
         cuis = set([x[IDXS.MRCONSO.CUI] for x in self.atoms])
@@ -383,7 +386,8 @@ class UmlsAttribute(object):
 
 class UmlsOntology(object):
     def __init__(self, ont_code, ns, data_root, load_on_cuis=False,
-            umls_version="2012AB", store_atts=True, all_ont_codes=None):
+            umls_version="2012AB", store_atts=True, all_ont_codes=None,
+            ont_link=True):
         self.loaded = False
         self.ont_code = ont_code
         self.ns = ns
@@ -408,6 +412,7 @@ class UmlsOntology(object):
         self.umls_version = umls_version
         self.store_atts = store_atts
         self.all_ont_codes = all_ont_codes
+        self.ont_link = ont_link
 
     def load_tables(self):
         mrconso = UmlsTable.get("MRCONSO", self.data_root, 
@@ -533,7 +538,8 @@ class UmlsOntology(object):
             yield UmlsClass(self.ns, atoms=code_atoms, rels=rels_to_class,
                 defs=defs, atts=atts, rank=self.rank, rank_by_tty=self.rank_by_tty,
                 sty=self.sty, sty_by_cui=self.sty_by_cui,
-                load_on_cuis=self.load_on_cuis, is_root=is_root)
+                load_on_cuis=self.load_on_cuis, is_root=is_root, 
+                ont_link=self.ont_link)
 
     def write_into(self, file_path, hierarchy=True):
         LOG.info("%s writing terms ... %s" % (self.ont_code, file_path))
@@ -570,12 +576,15 @@ def main():
             default=False, action="store_true", 
             help="Load on CUIs (concept IDs) rather than "
             "AUIs (atom IDs) -- recommended for HL7 ")
-    parser.add_option('-n', '--no-atts', dest="store_atts",
+    parser.add_option("-n", "--no-atts", dest="store_atts",
             default=True, action="store_false",
             help="Don't create triples for attributes (ie ignore MRSAT)")
-    parser.add_option('--no-cache', dest="cache", action="store_false",
+    parser.add_option("--no-cache", dest="cache", action="store_false",
             default=True, help="Don't cache when creating multiple ontologies"
             " (saves memory but slows down, especially on smaller ontologies)")
+    parser.add_option("--no-ont-link", dest="ont_link", action="store_false",
+            default=False, help="Don't add in an explicit link to the source ontology "
+            "using rdfs:isDefinedBy")
     (options, args) = parser.parse_args()
     try:
         try:
@@ -608,6 +617,7 @@ def main():
                 load_on_cuis=options.load_on_cuis,
                 umls_version=options.umls_version,
                 store_atts=options.store_atts,
+                ont_link=options.ont_link,
                 all_ont_codes=all_ont_codes)
         ont.load_tables()
         ont.write_into(output_file, hierarchy=(ont.ont_code != "MSH"))
