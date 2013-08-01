@@ -12,7 +12,8 @@ from codecs import open
 
 ENC = 'utf-8'
 
-logging.basicConfig()
+FORMAT = '%(asctime)-15s %(message)s'
+logging.basicConfig(format=FORMAT)
 LOG = logging.getLogger(name='umls2rdf')
 LOG.setLevel(logging.DEBUG)
 
@@ -538,7 +539,7 @@ class UmlsOntology(object):
         LOG.info("%s writing terms ... %s" % (self.ont_code, file_path))
         with open(file_path, "w", encoding=ENC) as fout:
             #nterms = len(self.atoms_by_code)
-            fout.write("@prefix : <%s%s/> .\n" % (UMLS_BASE_URL, self.ont_code))
+            fout.write(PREFIXES)
             comment = "RDF Version of the UMLS ontology %s; " +\
                       "converted with the UMLS2RDF tool " +\
                       "(https://github.com/ncbo/umls2rdf), "+\
