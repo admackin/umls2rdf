@@ -187,7 +187,6 @@ class UmlsTable(object):
         return getattr(self._indexes, colname)
 
     def scan(self, filt=None):
-        rrf_path = path.join(self.data_root, "%s.RRF" % self.table_name)
         for row in self._get_rows():
             if filt and any(row[self._col_idx(col)] != tgt
                     for col, tgt in filt.iteritems()):
@@ -199,20 +198,22 @@ class UmlsTable(object):
 
     def _get_rows(self):
         if self._cached_rows is not None:
-            return self._cached_rows
+            for row in self._cached_rows:
+                yield row
         else:
             caching = self.cacheable_sabs is not None
             if caching:
                 self._cached_rows = []
+            rrf_path = path.join(self.data_root, "%s.RRF" % self.table_name)
             with open(rrf_path, encoding=ENC) as f:
                 for line in f:
                     elems = line.rstrip('\n').split('|')
-                    if caching and elems[self._col_idx['SAB']] in self.cacheable_sabs:
+                    if caching and elems[self._col_idx('SAB')] in self.cacheable_sabs:
                         self._cached_rows.append(elems)
                     yield elems
 
     @staticmethod
-    def get(cls, table_name, data_root, columns=None, cacheable_sabs=None):
+    def get(table_name, data_root, columns=None, cacheable_sabs=None):
         if cacheable_sabs is None:
             return UmlsTable(table_name, data_root, columns)
         key = (table_name, data_root, columns, cacheable_sabs)
@@ -429,7 +430,7 @@ class UmlsOntology(object):
         LOG.debug("length cui_roots: %d" % len(self.cui_roots))
 
 
-        mrrel = UmlsTable.get("MRREL", self.data_root
+        mrrel = UmlsTable.get("MRREL", self.data_root,
                 cacheable_sabs=self.all_ont_codes)
         gen_filt = {'SAB': self.ont_code} 
         field = IDXS.MRREL.AUI2 if not self.load_on_cuis else IDXS.MRREL.CUI2
@@ -439,7 +440,7 @@ class UmlsOntology(object):
             self.rels.append(rel)
         LOG.debug("length rels: %d", len(self.rels))
 
-        mrdef = UmlsTable.get("MRDEF", self.data_root
+        mrdef = UmlsTable.get("MRDEF", self.data_root,
                 cacheable_sabs=self.all_ont_codes)
         field = IDXS.MRDEF.AUI if not self.load_on_cuis else IDXS.MRDEF.CUI
         for defi in mrdef.scan(filt=gen_filt):
@@ -449,7 +450,7 @@ class UmlsOntology(object):
         LOG.debug("length defs: %d", len(self.defs))
 
         if self.store_atts:
-            mrsat = UmlsTable.get("MRSAT", self.data_root
+            mrsat = UmlsTable.get("MRSAT", self.data_root,
                     cacheable_sabs=self.all_ont_codes)
             field = IDXS.MRSAT.CODE if not self.load_on_cuis else IDXS.MRSAT.CUI
             for att in mrsat.scan(filt=gen_filt):
@@ -460,7 +461,7 @@ class UmlsOntology(object):
                 self.atts.append(att)
             LOG.debug("length atts: %d", len(self.atts))
 
-        mrrank = UmlsTable.get("MRRANK", self.data_root
+        mrrank = UmlsTable.get("MRRANK", self.data_root,
                 cacheable_sabs=self.all_ont_codes)
         for rank in mrrank.scan(filt=gen_filt):
             index = len(self.rank)
@@ -535,7 +536,7 @@ class UmlsOntology(object):
 
     def write_into(self, file_path, hierarchy=True):
         LOG.info("%s writing terms ... %s" % (self.ont_code, file_path))
-        with open(file_path, "w") as fout:
+        with open(file_path, "w", encoding=ENC) as fout:
             #nterms = len(self.atoms_by_code)
             fout.write(PREFIXES)
             fout.write("@prefix : <%s%s/> .\n" % (UMLS_BASE_URL, self.ont_code))
