@@ -29,11 +29,13 @@ PREFIXES = """
 @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
 @prefix umls: <%(umls)s> .
 @prefix umlssty: <%(umls)ssty/> .
+@prefix ont: <http://purl.bioontology.org/ontology/> .
+
 
 """ % {'umls': UMLS_BASE_URL}
 
 ONTOLOGY_HEADER = Template("""
-:
+<$uri>
     a owl:Ontology ;
     rdfs:comment "$comment" ;
     rdfs:label "$label" ;
@@ -86,7 +88,7 @@ MRSTY_CUI = 0
 MRSTY_TUI = 1
 
 def get_umls_url(code):
-    return "bioont:%s/" % code
+    return "ont:%s" % code
 
 def flatten(matrix):
     return reduce(lambda x, y: x + y, matrix)
@@ -95,10 +97,8 @@ def escape(string):
     return string.replace("\\", "\\\\").replace('"', '\\"')
 
 def get_url_term(ns, code):
-    if ns[-1] in ('/', ':'):
-        ret = "<%s%s>" % (ns, urllib.quote(code))
-    else:
-        ret = "<%s/%s>"% (ns, urllib.quote(code))
+    sep = '' if ns[-1] in ('/', ':') else '/'
+    ret = "<%s%s%s>"% (ns, sep, urllib.quote(code))
     return ret.replace("%20", "+") 
 
 def get_rel_fragment(rel):
@@ -497,7 +497,7 @@ class UmlsOntology(object):
             defs = [self.defs[x] for x in self.defs_by_aui[_id] for _id in ids]
             atts = [self.atts[x] for x in self.atts_by_code[code]]
 
-            yield UmlsClass(':', atoms=code_atoms, rels=rels_to_class,
+            yield UmlsClass(self.ns, atoms=code_atoms, rels=rels_to_class,
                 defs=defs, atts=atts, rank=self.rank, rank_by_tty=self.rank_by_tty,
                 sty=self.sty, sty_by_cui=self.sty_by_cui,
                 load_on_cuis=self.load_on_cuis, is_root=is_root)
@@ -507,7 +507,6 @@ class UmlsOntology(object):
         fout = file(file_path, "w")
         #nterms = len(self.atoms_by_code)
         fout.write(PREFIXES)
-        fout.write("@prefix : <%s%s/> .\n" % (UMLS_BASE_URL, self.ont_code))
         comment = "RDF Version of the UMLS ontology %s; " +\
                   "converted with the UMLS2RDF tool " +\
                   "(https://github.com/ncbo/umls2rdf), "+\
@@ -516,6 +515,7 @@ class UmlsOntology(object):
            label=self.ont_code,
            comment=comment % self.ont_code,
            versioninfo=conf.UMLS_VERSION,
+           uri=self.ns
         )
         fout.write(ONTOLOGY_HEADER.substitute(header_values))
         for term in self.terms():
