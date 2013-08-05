@@ -32,7 +32,7 @@ PREFIXES = """
 @prefix xsd: <http://www.w3.org/2001/XMLSchema#> .
 @prefix umls: <%(umls)s> .
 @prefix umlssty: <%(umls)ssty/> .
-@prefix ont: <http://purl.bioontology.org/ontology/> .
+@base <http://purl.bioontology.org/ontology/> .
 
 
 """ % {'umls': UMLS_BASE_URL}
@@ -110,7 +110,7 @@ class IDXS(object):
 
 
 def get_umls_url(code):
-    return "ont:%s" % code
+    return "%s" % code
 
 def flatten(matrix):
     return reduce(lambda x, y: x + y, matrix)
@@ -583,7 +583,7 @@ def main():
             default=True, help="Don't cache when creating multiple ontologies"
             " (saves memory but slows down, especially on smaller ontologies)")
     parser.add_option("--no-ont-link", dest="ont_link", action="store_false",
-            default=False, help="Don't add in an explicit link to the source ontology "
+            default=True, help="Don't add in an explicit link to the source ontology "
             "using rdfs:isDefinedBy")
     (options, args) = parser.parse_args()
     try:
@@ -610,8 +610,8 @@ def main():
     for umls_code in options.sources:
         file_out = "%s.ttl" % umls_code
         output_file = path.join(output_dir, file_out)
-        LOG.info("Generating %s (with load_on_cuis=%r)", umls_code, 
-            options.load_on_cuis)
+        LOG.info("Generating %s (with load_on_cuis=%r, store_atts=%r, ont_link=%r)", umls_code, 
+            options.load_on_cuis, options.store_atts, options.ont_link)
         ns = get_umls_url(umls_code)
         ont = UmlsOntology(umls_code, ns, data_root, 
                 load_on_cuis=options.load_on_cuis,
