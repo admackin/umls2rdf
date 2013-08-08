@@ -17,11 +17,11 @@ logging.basicConfig(format=FORMAT)
 LOG = logging.getLogger(name='umls2rdf')
 LOG.setLevel(logging.DEBUG)
 
-KNOWN_ONT_CODES = set(['AIR', 'CST', 'CSP', 'HCPCS', 'ICD10PCS', 
+KNOWN_ONT_CODES = set(['AIR', 'CST', 'CSP', 'HCPCS', 'ICD10PCS',
         'ICD10CM', 'ICPC2P', 'ICD9CM', 'LNC', 'MDR', 'MDDB', 'MSH',
-        'MEDLINEPLUS', 'MTHCH', 'NDDF', 'NDFRT', 'OMIM', 'PDQ', 
-        'RCD', 'RXNORM', 'SNOMEDCT', 'VANDF', 'WHO', 'HL7', 
-        'ICD10', 'CPT', 'ICPC']) 
+        'MEDLINEPLUS', 'MTHCH', 'NDDF', 'NDFRT', 'OMIM', 'PDQ',
+        'RCD', 'RXNORM', 'SNOMEDCT', 'VANDF', 'WHO', 'HL7',
+        'ICD10', 'CPT', 'ICPC'])
 
 UMLS_BASE_URL = "http://bioportal.bioontology.org/ontologies/umls/"
 
@@ -120,8 +120,8 @@ def escape(string):
 
 def get_url_term(ns, code):
     sep = '' if ns[-1] in ('/', ':') else '/'
-    ret = "<%s%s%s>"% (ns, sep, urllib.quote(code))
-    return ret.replace("%20", "+") 
+    ret = "<%s%s%s>" % (ns, sep, urllib.quote(code))
+    return ret.replace("%20", "+")
 
 def get_rel_fragment(rel):
     return rel[IDXS.MRREL.RELA] if rel[IDXS.MRREL.RELA] else rel[IDXS.MRREL.REL]
@@ -131,6 +131,7 @@ def get_rel_fragment(rel):
 # indices to obtain the source and target codes, respectively.
 def get_rel_code_source(rel, on_cuis):
     return rel[-1] if not on_cuis else rel[IDXS.MRREL.CUI2]
+
 def get_rel_code_target(rel, on_cuis):
     return rel[-2] if not on_cuis else rel[IDXS.MRREL.CUI1]
 
@@ -142,7 +143,7 @@ def get_code(reg, load_on_cuis):
     raise AttributeError, "No code on reg [%s]"%("|".join(reg))
 
 def generate_semantic_types(data_root, url, fileout):
-    hierarchy = collections.defaultdict(lambda : list()) 
+    hierarchy = collections.defaultdict(list)
     all_nodes = list()
     mrsty = UmlsTable("MRSTY", data_root, columns=['TUI', 'STN', 'STY'])
     ont = list()
@@ -156,14 +157,14 @@ def generate_semantic_types(data_root, url, fileout):
         sty_term = """%s a owl:Class ;
 \tskos:notation "%s"^^xsd:string ;
 \tskos:prefLabel "%s"@en .
-""" % (url+stt[0], stt[0], stt[2])
+""" % (url + stt[0], stt[0], stt[2])
         ont.append(sty_term)
         all_nodes.append(stt)
-    
+
     for node in all_nodes:
         parent = ".".join(node[1].split(".")[0:-1])
-        rdfs_subclasses = ["<%s> rdfs:subClassOf %s ." % 
-            (url+node[0], url+x) for x in hierarchy[parent]]
+        rdfs_subclasses = ["<%s> rdfs:subClassOf %s ." %
+            (url + node[0], url + x) for x in hierarchy[parent]]
         for sc in rdfs_subclasses:
             ont.append(sc)
     data_ont_ttl = "\n".join(ont)
@@ -224,7 +225,7 @@ class UmlsTable(object):
 
 
 class UmlsClass(object):
-    def __init__(self, ns, atoms=None, rels=None, defs=None, 
+    def __init__(self, ns, atoms=None, rels=None, defs=None,
             atts=None, rank=None, rank_by_tty=None, sty=None,
             sty_by_cui=None, load_on_cuis=False,
             is_root=None, ont_link=True, cuis_as_strings=False):
@@ -254,9 +255,9 @@ class UmlsClass(object):
     def getAltLabels(self, prefLabel):
         #is_pref_atoms =  filter(lambda x: x[IDXS.MRCONSO.ISPREF] == 'Y', self.atoms)
         return set([atom[IDXS.MRCONSO.STR]
-                for atom in self.atoms 
+                for atom in self.atoms
                 if atom[IDXS.MRCONSO.STR] != prefLabel])
-        
+
     def getPrefLabel(self):
         if self.load_on_cuis:
             if len(self.atoms) == 1:
@@ -267,22 +268,22 @@ class UmlsClass(object):
                 return labels.pop()
 
             #if there's only one ISPREF=Y then that one.
-            is_pref_atoms =  filter(lambda x: x[IDXS.MRCONSO.ISPREF] == 'Y', self.atoms)
+            is_pref_atoms = filter(lambda x: x[IDXS.MRCONSO.ISPREF] == 'Y', self.atoms)
             if len(is_pref_atoms) == 1:
                 return is_pref_atoms[0][IDXS.MRCONSO.STR]
             elif len(is_pref_atoms) > 1:
-                is_pref_atoms =  filter(lambda x: x[IDXS.MRCONSO.STT] == 'PF', is_pref_atoms)
+                is_pref_atoms = filter(lambda x: x[IDXS.MRCONSO.STT] == 'PF', is_pref_atoms)
                 if len(is_pref_atoms) > 0:
                     return is_pref_atoms[0][IDXS.MRCONSO.STR]
-            is_pref_atoms =  filter(lambda x: x[IDXS.MRCONSO.STT] == 'PF', self.atoms)
+            is_pref_atoms = filter(lambda x: x[IDXS.MRCONSO.STT] == 'PF', self.atoms)
             if len(is_pref_atoms) == 1:
                 return is_pref_atoms[0][IDXS.MRCONSO.STR]
             return self.atoms[0][IDXS.MRCONSO.STR]
         else:
             #if ISPREF=Y is not 1 then we look into MRRANK.
             if len(self.rank) > 0:
-                sort_key = \
-                lambda x: int(self.rank[self.rank_by_tty[x[IDXS.MRCONSO.TTY]][0]][IDXS.MRRANK.RANK])
+                def sort_key(x):
+                    return int(self.rank[self.rank_by_tty[x[IDXS.MRCONSO.TTY]][0]][IDXS.MRRANK.RANK])
                 mmrank_sorted_atoms = sorted(self.atoms, key=sort_key, reverse=True)
                 return mmrank_sorted_atoms[0][IDXS.MRCONSO.STR]
             #there is no rank to use
@@ -291,10 +292,10 @@ class UmlsClass(object):
                 if len(pref_atom) == 1:
                     return pref_atom[0][IDXS.MRCONSO.STR]
             raise AttributeError, "Unable to select pref label"
-    
+
     def getURLTerm(self, code):
         return get_url_term(self.ns, code)
-    
+
     def toRDF(self, fmt="Turtle", hierarchy=True):
         if not fmt == "Turtle":
             raise AttributeError, "Only fmt='Turtle' is currently supported"
@@ -309,7 +310,7 @@ class UmlsClass(object):
         if len(altLabels) > 0:
             rdf_term += """\tskos:altLabel %s ;
 """ % (" , ".join('\"\"\"%s\"\"\"@en' % escape(al) for al in altLabels))
-        if self.is_root: 
+        if self.is_root:
             rdf_term += '\tumls:isRoot "true"^^xsd:boolean ;\n'
             # TODO: Discuss adding this subclass relation.
             #rdf_term += '\trdfs:subClassOf owl:Thing ;\n'
@@ -360,7 +361,7 @@ class UmlsClass(object):
                 rdf_term += """\t%s \"\"\"%s\"\"\"^^xsd:string ;\n""" % (HAS_CUI, t)
             else:
                 rdf_term += """\t%s skos:closeMatch <umls/%s>;\n""" % t
-                
+
         for t in set(types):
             rdf_term += """\t%s \"\"\"%s\"\"\"^^xsd:string ;\n""" % (HAS_TUI, t)
         for t in set(types):
@@ -384,7 +385,9 @@ class UmlsAttribute(object):
         return """<%s> a owl:DatatypeProperty ;
 \trdfs:label \"\"\"%s\"\"\";
 \trdfs:comment \"\"\"%s\"\"\" .
-\n"""%(self.getURLTerm(self.att[IDXS.MRDOC.VALUE]), escape(self.att[IDXS.MRDOC.VALUE]), escape(self.att[IDXS.MRDOC.DESC]))
+\n""" % (self.getURLTerm(self.att[IDXS.MRDOC.VALUE]), 
+    escape(self.att[IDXS.MRDOC.VALUE]), 
+    escape(self.att[IDXS.MRDOC.DESC]))
 
 
 
@@ -420,9 +423,9 @@ class UmlsOntology(object):
         self.cuis_as_strings = cuis_as_strings
 
     def load_tables(self):
-        mrconso = UmlsTable.get("MRCONSO", self.data_root, 
+        mrconso = UmlsTable.get("MRCONSO", self.data_root,
                 cacheable_sabs=self.all_ont_codes)
-        mrconso_filt = {'SAB': self.ont_code, 'LAT': 'ENG'} 
+        mrconso_filt = {'SAB': self.ont_code, 'LAT': 'ENG'}
         relev_cuis = set()
         for atom in mrconso.scan(filt=mrconso_filt):
             index = len(self.atoms)
@@ -435,7 +438,7 @@ class UmlsOntology(object):
         LOG.debug("length atoms_by_aui: %d", len(self.atoms_by_aui))
         LOG.debug("atom example: %s", str(self.atoms[0]))
 
-        mrconso_filt = {'SAB': 'SRC', 'CODE': 'V-%s' % self.ont_code} 
+        mrconso_filt = {'SAB': 'SRC', 'CODE': 'V-%s' % self.ont_code}
         for atom in mrconso.scan(filt=mrconso_filt):
             self.cui_roots.add(atom[IDXS.MRCONSO.CUI])
         LOG.debug("length cui_roots: %d" % len(self.cui_roots))
@@ -443,7 +446,7 @@ class UmlsOntology(object):
 
         mrrel = UmlsTable.get("MRREL", self.data_root,
                 cacheable_sabs=self.all_ont_codes)
-        gen_filt = {'SAB': self.ont_code} 
+        gen_filt = {'SAB': self.ont_code}
         field = IDXS.MRREL.AUI2 if not self.load_on_cuis else IDXS.MRREL.CUI2
         for rel in mrrel.scan(filt=gen_filt):
             index = len(self.rels)
@@ -498,8 +501,8 @@ class UmlsOntology(object):
             self.load_tables()
         # Note: most UMLS ontologies are 'load_on_codes' (only HL7 is load_on_cuis)
         for code in self.atoms_by_code:
-            code_atoms = [self.atoms[row] for row in self.atoms_by_code[code]] 
-            field = IDXS.MRCONSO.CUI if self.load_on_cuis else IDXS.MRCONSO.AUI 
+            code_atoms = [self.atoms[row] for row in self.atoms_by_code[code]]
+            field = IDXS.MRCONSO.CUI if self.load_on_cuis else IDXS.MRCONSO.AUI
             ids = map(lambda x: x[field], code_atoms)
             rels = list()
             for _id in ids:
@@ -517,10 +520,10 @@ class UmlsOntology(object):
                     rel_with_codes = list(rel)
                     aui_source = rel[IDXS.MRREL.AUI2]
                     aui_target = rel[IDXS.MRREL.AUI1]
-                    code_source = [ get_code(self.atoms[x], self.load_on_cuis) \
-                                        for x in self.atoms_by_aui[aui_source] ]
-                    code_target = [ get_code(self.atoms[x], self.load_on_cuis) \
-                                        for x in self.atoms_by_aui[aui_target] ]
+                    code_source = [get_code(self.atoms[x], self.load_on_cuis) \
+                                        for x in self.atoms_by_aui[aui_source]]
+                    code_target = [get_code(self.atoms[x], self.load_on_cuis) \
+                                        for x in self.atoms_by_aui[aui_target]]
                     # TODO: Check use of CUI1 (target) or CUI2 (source) here:
                     if rel[IDXS.MRREL.CUI1] in self.cui_roots:
                         is_root = True
@@ -543,7 +546,7 @@ class UmlsOntology(object):
             yield UmlsClass(self.ns, atoms=code_atoms, rels=rels_to_class,
                 defs=defs, atts=atts, rank=self.rank, rank_by_tty=self.rank_by_tty,
                 sty=self.sty, sty_by_cui=self.sty_by_cui,
-                load_on_cuis=self.load_on_cuis, is_root=is_root, 
+                load_on_cuis=self.load_on_cuis, is_root=is_root,
                 ont_link=self.ont_link, cuis_as_strings=self.cuis_as_strings)
 
     def write_into(self, file_path, hierarchy=True):
@@ -575,10 +578,10 @@ def main():
             help="UMLS version to tag TTL files with", default="2012AB")
     parser.add_option("-s", "--source", dest="sources", action="append",
             help="Create TTL files for this source ontology. Can be "
-            " specified multiple times; must be one of %s)" 
+            " specified multiple times; must be one of %s)"
             % ', '.join(KNOWN_ONT_CODES))
     parser.add_option("--load-on-cuis", dest="load_on_cuis",
-            default=False, action="store_true", 
+            default=False, action="store_true",
             help="Load on CUIs (concept IDs) rather than "
             "AUIs (atom IDs) -- recommended for HL7 ")
     parser.add_option("-n", "--no-atts", dest="store_atts",
@@ -590,8 +593,8 @@ def main():
     parser.add_option("--no-ont-link", dest="ont_link", action="store_false",
             default=True, help="Don't add in an explicit link to the source ontology "
             "using rdfs:isDefinedBy")
-    parser.add_option("--cuis-as-strings", dest="cuis_as_strings", 
-            action="store_true", default=False, 
+    parser.add_option("--cuis-as-strings", dest="cuis_as_strings",
+            action="store_true", default=False,
             help="Encode CUIs as XSD strings instead of graph nodes "
             "linked by skos:closeMatch")
     (options, args) = parser.parse_args()
@@ -619,15 +622,15 @@ def main():
     for umls_code in options.sources:
         file_out = "%s.ttl" % umls_code
         output_file = path.join(output_dir, file_out)
-        LOG.info("Generating %s (with load_on_cuis=%r, store_atts=%r, ont_link=%r)", umls_code, 
+        LOG.info("Generating %s (with load_on_cuis=%r, store_atts=%r, ont_link=%r)", umls_code,
             options.load_on_cuis, options.store_atts, options.ont_link)
         ns = get_umls_url(umls_code)
-        ont = UmlsOntology(umls_code, ns, data_root, 
+        ont = UmlsOntology(umls_code, ns, data_root,
                 load_on_cuis=options.load_on_cuis,
                 umls_version=options.umls_version,
                 store_atts=options.store_atts,
                 ont_link=options.ont_link,
-                all_ont_codes=all_ont_codes, 
+                all_ont_codes=all_ont_codes,
                 cuis_as_strings=options.cuis_as_strings)
         ont.load_tables()
         ont.write_into(output_file, hierarchy=(ont.ont_code != "MSH"))
