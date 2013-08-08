@@ -224,11 +224,10 @@ class UmlsTable(object):
 
 
 class UmlsClass(object):
-    def __init__(self, ns, atoms=None, rels=None,
-            defs=None, atts=None, rank=None,
-            rank_by_tty=None, sty=None,
+    def __init__(self, ns, atoms=None, rels=None, defs=None, 
+            atts=None, rank=None, rank_by_tty=None, sty=None,
             sty_by_cui=None, load_on_cuis=False,
-            is_root=None, ont_link=True):
+            is_root=None, ont_link=True, cuis_as_strings=False):
         self.ns = ns
         self.atoms = atoms
         self.rels = rels
@@ -241,6 +240,7 @@ class UmlsClass(object):
         self.load_on_cuis = load_on_cuis
         self.is_root = is_root
         self.ont_link = ont_link
+        self.cuis_as_strings = cuis_as_strings
 
     def code(self):
         codes = set([get_code(x, self.load_on_cuis) for x in self.atoms])
@@ -356,11 +356,15 @@ class UmlsClass(object):
         #for t in auis:
         #    rdf_term += """\t%s \"\"\"%s\"\"\"^^xsd:string ;\n"""%(HAS_AUI, t)
         for t in cuis:
-            rdf_term += """\t%s \"\"\"%s\"\"\"^^xsd:string ;\n""" % (HAS_CUI, t)
+            if self.cuis_as_strings:
+                rdf_term += """\t%s \"\"\"%s\"\"\"^^xsd:string ;\n""" % (HAS_CUI, t)
+            else:
+                rdf_term += """\t%s skos:closeMatch <umls/%s>;\n""" % t
+                
         for t in set(types):
             rdf_term += """\t%s \"\"\"%s\"\"\"^^xsd:string ;\n""" % (HAS_TUI, t)
         for t in set(types):
-            rdf_term += """\t%s %s ;\n""" % (HAS_STY, STY_URL+t)
+            rdf_term += """\t%s %s ;\n""" % (HAS_STY, STY_URL + t)
 
         return rdf_term + " .\n\n"
 
@@ -387,7 +391,7 @@ class UmlsAttribute(object):
 class UmlsOntology(object):
     def __init__(self, ont_code, ns, data_root, load_on_cuis=False,
             umls_version="2012AB", store_atts=True, all_ont_codes=None,
-            ont_link=True):
+            ont_link=True, cuis_as_strings=False):
         self.loaded = False
         self.ont_code = ont_code
         self.ns = ns
@@ -413,6 +417,7 @@ class UmlsOntology(object):
         self.store_atts = store_atts
         self.all_ont_codes = all_ont_codes
         self.ont_link = ont_link
+        self.cuis_as_strings = cuis_as_strings
 
     def load_tables(self):
         mrconso = UmlsTable.get("MRCONSO", self.data_root, 
@@ -539,7 +544,7 @@ class UmlsOntology(object):
                 defs=defs, atts=atts, rank=self.rank, rank_by_tty=self.rank_by_tty,
                 sty=self.sty, sty_by_cui=self.sty_by_cui,
                 load_on_cuis=self.load_on_cuis, is_root=is_root, 
-                ont_link=self.ont_link)
+                ont_link=self.ont_link, cuis_as_strings=self.cuis_as_strings)
 
     def write_into(self, file_path, hierarchy=True):
         LOG.info("%s writing terms ... %s" % (self.ont_code, file_path))
@@ -585,6 +590,10 @@ def main():
     parser.add_option("--no-ont-link", dest="ont_link", action="store_false",
             default=True, help="Don't add in an explicit link to the source ontology "
             "using rdfs:isDefinedBy")
+    parser.add_option("--cuis-as-strings", dest="cuis_as_strings", 
+            action="store_true", default=False, 
+            help="Encode CUIs as XSD strings instead of graph nodes "
+            "linked by skos:closeMatch")
     (options, args) = parser.parse_args()
     try:
         try:
@@ -618,7 +627,8 @@ def main():
                 umls_version=options.umls_version,
                 store_atts=options.store_atts,
                 ont_link=options.ont_link,
-                all_ont_codes=all_ont_codes)
+                all_ont_codes=all_ont_codes, 
+                cuis_as_strings=options.cuis_as_strings)
         ont.load_tables()
         ont.write_into(output_file, hierarchy=(ont.ont_code != "MSH"))
         LOG.info("done!")
